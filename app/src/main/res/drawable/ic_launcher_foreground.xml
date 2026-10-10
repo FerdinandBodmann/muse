@@ -1,10 +1,192 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Muse launcher foreground: 16 symmetric blades + center core.
+  Converted from ai_icon_16_blades.svg. Geometry scaled so the blade tips sit
+  on the 66dp adaptive-icon safe-zone circle (radius 33 from center at 54,54).
+  Stroke widths are thickened slightly versus the source for legibility at
+  launcher sizes.
+-->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M54,28 C56,43 65,52 80,54 C65,56 56,65 54,80 C52,65 43,56 28,54 C43,52 52,43 54,28 Z" />
+
+    <group
+        android:translateX="54"
+        android:translateY="54">
+
+        <!-- 8 long outer blades (dark fill, orange edge) -->
+        <group android:rotation="0">
+            <path
+                android:fillColor="#232323"
+                android:strokeColor="#FF8C00"
+                android:strokeWidth="0.9"
+                android:strokeLineJoin="round"
+                android:strokeLineCap="round"
+                android:pathData="M0,0 L-1.375,-3.536 L0,-33 L1.375,-3.536 Z" />
+        </group>
+        <group android:rotation="45">
+            <path
+                android:fillColor="#232323"
+                android:strokeColor="#FF8C00"
+                android:strokeWidth="0.9"
+                android:strokeLineJoin="round"
+                android:strokeLineCap="round"
+                android:pathData="M0,0 L-1.375,-3.536 L0,-33 L1.375,-3.536 Z" />
+        </group>
+        <group android:rotation="90">
+            <path
+                android:fillColor="#232323"
+                android:strokeColor="#FF8C00"
+                android:strokeWidth="0.9"
+                android:strokeLineJoin="round"
+                android:strokeLineCap="round"
+                android:pathData="M0,0 L-1.375,-3.536 L0,-33 L1.375,-3.536 Z" />
+        </group>
+        <group android:rotation="135">
+            <path
+                android:fillColor="#232323"
+                android:strokeColor="#FF8C00"
+                android:strokeWidth="0.9"
+                android:strokeLineJoin="round"
+                android:strokeLineCap="round"
+                android:pathData="M0,0 L-1.375,-3.536 L0,-33 L1.375,-3.536 Z" />
+        </group>
+        <group android:rotation="180">
+            <path
+                android:fillColor="#232323"
+                android:strokeColor="#FF8C00"
+                android:strokeWidth="0.9"
+                android:strokeLineJoin="round"
+                android:strokeLineCap="round"
+                android:pathData="M0,0 L-1.375,-3.536 L0,-33 L1.375,-3.536 Z" />
+        </group>
+        <group android:rotation="225">
+            <path
+                android:fillColor="#232323"
+                android:strokeColor="#FF8C00"
+                android:strokeWidth="0.9"
+                android:strokeLineJoin="round"
+                android:strokeLineCap="round"
+                android:pathData="M0,0 L-1.375,-3.536 L0,-33 L1.375,-3.536 Z" />
+        </group>
+        <group android:rotation="270">
+            <path
+                android:fillColor="#232323"
+                android:strokeColor="#FF8C00"
+                android:strokeWidth="0.9"
+                android:strokeLineJoin="round"
+                android:strokeLineCap="round"
+                android:pathData="M0,0 L-1.375,-3.536 L0,-33 L1.375,-3.536 Z" />
+        </group>
+        <group android:rotation="315">
+            <path
+                android:fillColor="#232323"
+                android:strokeColor="#FF8C00"
+                android:strokeWidth="0.9"
+                android:strokeLineJoin="round"
+                android:strokeLineCap="round"
+                android:pathData="M0,0 L-1.375,-3.536 L0,-33 L1.375,-3.536 Z" />
+        </group>
+
+        <!-- 8 short inner blades, offset 22.5deg -->
+        <group android:rotation="22.5">
+            <path
+                android:fillColor="#1A1A1A"
+                android:fillAlpha="0.85"
+                android:strokeColor="#FF8C00"
+                android:strokeAlpha="0.85"
+                android:strokeWidth="0.75"
+                android:strokeLineJoin="round"
+                android:strokeLineCap="round"
+                android:pathData="M0,0 L-0.982,-2.75 L0,-20.625 L0.982,-2.75 Z" />
+        </group>
+        <group android:rotation="67.5">
+            <path
+                android:fillColor="#1A1A1A"
+                android:fillAlpha="0.85"
+                android:strokeColor="#FF8C00"
+                android:strokeAlpha="0.85"
+                android:strokeWidth="0.75"
+                android:strokeLineJoin="round"
+                android:strokeLineCap="round"
+                android:pathData="M0,0 L-0.982,-2.75 L0,-20.625 L0.982,-2.75 Z" />
+        </group>
+        <group android:rotation="112.5">
+            <path
+                android:fillColor="#1A1A1A"
+                android:fillAlpha="0.85"
+                android:strokeColor="#FF8C00"
+                android:strokeAlpha="0.85"
+                android:strokeWidth="0.75"
+                android:strokeLineJoin="round"
+                android:strokeLineCap="round"
+                android:pathData="M0,0 L-0.982,-2.75 L0,-20.625 L0.982,-2.75 Z" />
+        </group>
+        <group android:rotation="157.5">
+            <path
+                android:fillColor="#1A1A1A"
+                android:fillAlpha="0.85"
+                android:strokeColor="#FF8C00"
+                android:strokeAlpha="0.85"
+                android:strokeWidth="0.75"
+                android:strokeLineJoin="round"
+                android:strokeLineCap="round"
+                android:pathData="M0,0 L-0.982,-2.75 L0,-20.625 L0.982,-2.75 Z" />
+        </group>
+        <group android:rotation="202.5">
+            <path
+                android:fillColor="#1A1A1A"
+                android:fillAlpha="0.85"
+                android:strokeColor="#FF8C00"
+                android:strokeAlpha="0.85"
+                android:strokeWidth="0.75"
+                android:strokeLineJoin="round"
+                android:strokeLineCap="round"
+                android:pathData="M0,0 L-0.982,-2.75 L0,-20.625 L0.982,-2.75 Z" />
+        </group>
+        <group android:rotation="247.5">
+            <path
+                android:fillColor="#1A1A1A"
+                android:fillAlpha="0.85"
+                android:strokeColor="#FF8C00"
+                android:strokeAlpha="0.85"
+                android:strokeWidth="0.75"
+                android:strokeLineJoin="round"
+                android:strokeLineCap="round"
+                android:pathData="M0,0 L-0.982,-2.75 L0,-20.625 L0.982,-2.75 Z" />
+        </group>
+        <group android:rotation="292.5">
+            <path
+                android:fillColor="#1A1A1A"
+                android:fillAlpha="0.85"
+                android:strokeColor="#FF8C00"
+                android:strokeAlpha="0.85"
+                android:strokeWidth="0.75"
+                android:strokeLineJoin="round"
+                android:strokeLineCap="round"
+                android:pathData="M0,0 L-0.982,-2.75 L0,-20.625 L0.982,-2.75 Z" />
+        </group>
+        <group android:rotation="337.5">
+            <path
+                android:fillColor="#1A1A1A"
+                android:fillAlpha="0.85"
+                android:strokeColor="#FF8C00"
+                android:strokeAlpha="0.85"
+                android:strokeWidth="0.75"
+                android:strokeLineJoin="round"
+                android:strokeLineCap="round"
+                android:pathData="M0,0 L-0.982,-2.75 L0,-20.625 L0.982,-2.75 Z" />
+        </group>
+
+        <!-- center glow + core -->
+        <path
+            android:fillColor="#FF8C00"
+            android:fillAlpha="0.3"
+            android:pathData="M-2.75,0 A2.75,2.75 0 1,0 2.75,0 A2.75,2.75 0 1,0 -2.75,0 Z" />
+        <path
+            android:fillColor="#FF8C00"
+            android:pathData="M-1.179,0 A1.179,1.179 0 1,0 1.179,0 A1.179,1.179 0 1,0 -1.179,0 Z" />
+    </group>
 </vector>
