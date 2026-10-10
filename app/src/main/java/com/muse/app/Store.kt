@@ -71,9 +71,34 @@ class Store(ctx: Context) {
     }
 
     fun saveCompareRefs(list: List<ModelRef>) {
+        prefs.edit().putString("compare", refsJson(list)).apply()
+    }
+
+    fun favoriteRefs(): List<ModelRef> = readRefs("favorites")
+    fun recentRefs(): List<ModelRef> = readRefs("recents")
+
+    fun saveFavoriteRefs(list: List<ModelRef>) {
+        prefs.edit().putString("favorites", refsJson(list)).apply()
+    }
+
+    fun saveRecentRefs(list: List<ModelRef>) {
+        prefs.edit().putString("recents", refsJson(list)).apply()
+    }
+
+    private fun readRefs(key: String): List<ModelRef> {
+        val s = prefs.getString(key, null) ?: return emptyList()
+        return try {
+            val a = JSONArray(s)
+            List(a.length()) { val o = a.getJSONObject(it); ModelRef(o.getString("p"), o.getString("m")) }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    private fun refsJson(list: List<ModelRef>): String {
         val a = JSONArray()
         list.forEach { a.put(JSONObject().put("p", it.providerId).put("m", it.model)) }
-        prefs.edit().putString("compare", a.toString()).apply()
+        return a.toString()
     }
 
     // ---- personas ----
@@ -128,9 +153,17 @@ class Store(ctx: Context) {
                 images = List(im.length()) { im.getString(it) },
                 model = if (m.has("model")) m.getString("model") else null,
                 error = if (m.has("error")) m.getString("error") else null,
+                reasoning = if (m.has("reasoning")) m.getString("reasoning") else null,
             )
         }
-        return Conversation(o.getString("id"), o.optString("title", "Chat"), o.optLong("updatedAt"), msgs)
+        return Conversation(
+            id = o.getString("id"),
+            title = o.optString("title", "Chat"),
+            updatedAt = o.optLong("updatedAt"),
+            messages = msgs,
+            temperature = if (o.has("temperature")) o.getDouble("temperature").toFloat() else null,
+            maxTokens = if (o.has("maxTokens")) o.getInt("maxTokens") else null,
+        )
     }
 
     private fun toJson(c: Conversation): JSONObject {
@@ -141,10 +174,15 @@ class Store(ctx: Context) {
                 .put("images", JSONArray(m.images))
             if (m.model != null) o.put("model", m.model)
             if (m.error != null) o.put("error", m.error)
+            if (m.reasoning != null) o.put("reasoning", m.reasoning)
             arr.put(o)
         }
         return JSONObject().put("id", c.id).put("title", c.title)
             .put("updatedAt", c.updatedAt).put("messages", arr)
+            .also { o ->
+                if (c.temperature != null) o.put("temperature", c.temperature.toDouble())
+                if (c.maxTokens != null) o.put("maxTokens", c.maxTokens)
+            }
     }
 
     // ---- images ----

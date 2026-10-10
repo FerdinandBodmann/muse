@@ -5,7 +5,9 @@ OpenRouter, Groq, Mistral, DeepSeek, xAI, Together, Cerebras, Fireworks, NVIDIA 
 SambaNova, Hugging Face, Moonshot, plus any OpenAI-compatible endpoint.
 
 Features: streaming chat, saved history, image attachments, side-by-side model compare,
-personas (system prompts), light/dark following the system.
+personas (system prompts), reasoning/thinking display, edit-and-resend, model favorites and
+recents, chat search/rename/export, per-chat generation parameters, light/dark following the
+system.
 
 ## Build with GitHub Actions
 1. Create a repo and push this folder (the `.github` folder must be at the repo root).

@@ -22,6 +22,12 @@ import java.io.IOException
 import java.util.concurrent.TimeUnit
 import kotlin.math.max
 
+/** A piece of a streamed reply: either the visible answer or the model's reasoning. */
+sealed interface StreamEvent {
+    data class Content(val text: String) : StreamEvent
+    data class Reasoning(val text: String) : StreamEvent
+}
+
 object ApiClient {
 
     private val http = OkHttpClient.Builder()
@@ -31,7 +37,7 @@ object ApiClient {
 
     private val JSON_TYPE = "application/json".toMediaType()
 
-    /** Streams text deltas. Errors surface as exceptions on the flow. */
+    /** Streams reply deltas. Errors surface as exceptions on the flow. */
     fun stream(
         provider: Provider,
         baseUrl: String,
@@ -39,11 +45,15 @@ object ApiClient {
         model: String,
         system: String,
         turns: List<Turn>,
-    ): Flow<String> = callbackFlow {
+        temperature: Float? = null,
+        maxTokens: Int? = null,
+    ): Flow<StreamEvent> = callbackFlow {
         var call: Call? = null
         val job = launch(Dispatchers.IO) {
             try {
-                val c = http.newCall(buildRequest(provider, baseUrl, apiKey, model, system, turns))
+                val c = http.newCall(
+                    buildRequest(provider, baseUrl, apiKey, model, system, turns, temperature, maxTokens)
+                )
                 call = c
                 c.execute().use { resp ->
                     val body = resp.body ?: throw IOException("Empty response")
@@ -59,15 +69,23 @@ object ApiClient {
                         if (provider.type == ApiType.OPENAI) {
                             j.optJSONArray("citations")?.let { citations = it }
                             val delta = j.optJSONArray("choices")?.optJSONObject(0)?.optJSONObject("delta")
-                            if (delta != null && !delta.isNull("content")) {
-                                val t = delta.optString("content", "")
-                                if (t.isNotEmpty()) trySend(t)
+                            if (delta != null) {
+                                val r = delta.optString("reasoning_content", "")
+                                    .ifEmpty { delta.optString("reasoning", "") }
+                                if (r.isNotEmpty()) trySend(StreamEvent.Reasoning(r))
+                                if (!delta.isNull("content")) {
+                                    val t = delta.optString("content", "")
+                                    if (t.isNotEmpty()) trySend(StreamEvent.Content(t))
+                                }
                             }
                         } else {
                             when (j.optString("type")) {
                                 "content_block_delta" -> {
-                                    val t = j.optJSONObject("delta")?.optString("text", "") ?: ""
-                                    if (t.isNotEmpty()) trySend(t)
+                                    val d = j.optJSONObject("delta")
+                                    val thinking = d?.optString("thinking", "") ?: ""
+                                    if (thinking.isNotEmpty()) trySend(StreamEvent.Reasoning(thinking))
+                                    val t = d?.optString("text", "") ?: ""
+                                    if (t.isNotEmpty()) trySend(StreamEvent.Content(t))
                                 }
                                 "error" -> throw IOException(
                                     j.optJSONObject("error")?.optString("message") ?: "Provider error"
@@ -76,7 +94,7 @@ object ApiClient {
                         }
                     }
                     citations?.let { c2 ->
-                        if (c2.length() > 0) trySend(sourcesText(c2))
+                        if (c2.length() > 0) trySend(StreamEvent.Content(sourcesText(c2)))
                     }
                 }
                 close()
@@ -104,6 +122,7 @@ object ApiClient {
     private fun buildRequest(
         provider: Provider, baseUrl: String, apiKey: String,
         model: String, system: String, turns: List<Turn>,
+        temperature: Float?, maxTokens: Int?,
     ): Request {
         require(baseUrl.isNotBlank()) { "Base URL is missing" }
         val base = baseUrl.trimEnd('/')
@@ -128,9 +147,10 @@ object ApiClient {
                 }
                 msgs.put(o)
             }
-            val body = JSONObject().put("model", model).put("max_tokens", 8192)
+            val body = JSONObject().put("model", model).put("max_tokens", maxTokens ?: 8192)
                 .put("stream", true).put("messages", msgs)
             if (system.isNotBlank()) body.put("system", system)
+            if (temperature != null) body.put("temperature", temperature.toDouble())
             Request.Builder().url("$base/messages")
                 .header("x-api-key", apiKey)
                 .header("anthropic-version", "2023-06-01")
@@ -156,6 +176,8 @@ object ApiClient {
                 msgs.put(o)
             }
             val body = JSONObject().put("model", model).put("messages", msgs).put("stream", true)
+            if (temperature != null) body.put("temperature", temperature.toDouble())
+            if (maxTokens != null) body.put("max_tokens", maxTokens)
             val rb = Request.Builder().url("$base/chat/completions")
                 .post(body.toString().toRequestBody(JSON_TYPE))
             if (apiKey.isNotBlank()) rb.header("Authorization", "Bearer $apiKey")

@@ -23,6 +23,8 @@ data class ChatMessage(
     val images: List<String> = emptyList(),
     val model: String? = null,
     val error: String? = null,
+    /** Chain-of-thought text streamed by reasoning models, kept separate from the answer. */
+    val reasoning: String? = null,
 )
 
 data class Conversation(
@@ -30,6 +32,9 @@ data class Conversation(
     val title: String,
     val updatedAt: Long,
     val messages: List<ChatMessage>,
+    /** Per-conversation sampling overrides. Null means "let the provider decide". */
+    val temperature: Float? = null,
+    val maxTokens: Int? = null,
 )
 
 /** One turn sent to an API. Images are base64 JPEG strings. */

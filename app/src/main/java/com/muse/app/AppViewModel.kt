@@ -16,6 +16,7 @@ import kotlinx.coroutines.withContext
 /** One column in the compare view. */
 class CompareSlot(val ref: ModelRef) {
     var text by mutableStateOf("")
+    var reasoning by mutableStateOf("")
     var error by mutableStateOf<String?>(null)
     var running by mutableStateOf(true)
 }
@@ -32,6 +33,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     var modelLists by mutableStateOf(Providers.all.associate { it.id to store.models(it) })
         private set
     var fetching by mutableStateOf<String?>(null)
+        private set
+    var testing by mutableStateOf<String?>(null)
         private set
     var notice by mutableStateOf<String?>(null)
 
@@ -52,6 +55,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     var personas by mutableStateOf(store.personas())
         private set
     var personaId by mutableStateOf(store.personaId())
+        private set
+
+    // ---- favorites / recents ----
+    var favorites by mutableStateOf(store.favoriteRefs())
+        private set
+    var recents by mutableStateOf(store.recentRefs())
         private set
 
     // ---- compare ----
@@ -114,6 +123,47 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun choose(ref: ModelRef) {
         selected = ref
         store.saveSelectedModel(ref)
+        rememberRecent(ref)
+    }
+
+    fun testProvider(p: Provider) {
+        if (testing != null) return
+        val model = (modelLists[p.id] ?: emptyList()).firstOrNull() ?: p.models.firstOrNull()
+        if (model == null) {
+            notice = "${p.name}: add a model first"
+            return
+        }
+        viewModelScope.launch {
+            testing = p.id
+            try {
+                var got = false
+                ApiClient.stream(
+                    p, urls[p.id].orEmpty(), keys[p.id].orEmpty(), model, "",
+                    listOf(Turn("user", "Reply with the single word: ok")),
+                ).collect { got = true }
+                notice = if (got) "${p.name}: connection OK" else "${p.name}: connected, no text returned"
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                notice = "${p.name}: ${e.message ?: "connection failed"}"
+            }
+            testing = null
+        }
+    }
+
+    // ---- favorites / recents ----
+
+    fun isFavorite(ref: ModelRef): Boolean = ref in favorites
+
+    fun toggleFavorite(ref: ModelRef) {
+        favorites = if (ref in favorites) favorites - ref else listOf(ref) + favorites
+        store.saveFavoriteRefs(favorites)
+    }
+
+    private fun rememberRecent(ref: ModelRef) {
+        val list = (listOf(ref) + recents.filter { it != ref }).take(6)
+        recents = list
+        store.saveRecentRefs(list)
     }
 
     // =========================================================== personas
@@ -164,6 +214,30 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         conversations = conversations.filter { it.id != c.id }
     }
 
+    fun renameConversation(c: Conversation, title: String) {
+        val t = title.trim()
+        if (t.isEmpty()) return
+        val updated = c.copy(title = t)
+        store.saveConversation(updated)
+        conversations = conversations.map { if (it.id == c.id) updated else it }
+        if (current.id == c.id) current = current.copy(title = t)
+    }
+
+    /** Render a conversation as a portable Markdown transcript. */
+    fun exportMarkdown(c: Conversation): String {
+        val sb = StringBuilder("# ").append(c.title).append("\n\n")
+        c.messages.forEach { m ->
+            if (m.role == "user") sb.append("**You**\n\n")
+            else sb.append("**").append(m.model ?: "Assistant").append("**\n\n")
+            if (m.images.isNotEmpty()) {
+                sb.append("_(").append(m.images.size).append(if (m.images.size > 1) " images" else " image").append(")_\n\n")
+            }
+            if (m.text.isNotBlank()) sb.append(m.text).append("\n\n")
+            if (m.error != null) sb.append("> Error: ").append(m.error).append("\n\n")
+        }
+        return sb.toString().trim() + "\n"
+    }
+
     fun attach(uris: List<Uri>, forCompare: Boolean = false) {
         viewModelScope.launch {
             val names = withContext(Dispatchers.IO) {
@@ -207,26 +281,56 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val convId = current.id
         val history = current.messages.dropLast(1)
         val system = systemPrompt
+        val temperature = current.temperature
+        val maxTokens = current.maxTokens
         job = viewModelScope.launch {
             val sb = StringBuilder()
+            val rb = StringBuilder()
             try {
                 ApiClient.stream(
                     provider, urls[provider.id].orEmpty(), keys[provider.id].orEmpty(),
                     sel.model, system, toTurns(history),
-                ).collect { d ->
-                    sb.append(d)
-                    setLast(sb.toString(), null)
+                    temperature = temperature, maxTokens = maxTokens,
+                ).collect { ev ->
+                    when (ev) {
+                        is StreamEvent.Content -> {
+                            sb.append(ev.text)
+                            setLast(sb.toString(), null, rb.toString())
+                        }
+                        is StreamEvent.Reasoning -> {
+                            rb.append(ev.text)
+                            setLast(sb.toString(), null, rb.toString())
+                        }
+                    }
                 }
-                if (sb.isEmpty()) setLast("", "The model returned an empty response")
+                if (sb.isEmpty()) setLast("", "The model returned an empty response", rb.toString())
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                setLast(sb.toString(), e.message ?: "Request failed")
+                setLast(sb.toString(), e.message ?: "Request failed", rb.toString())
             } finally {
                 streaming = false
                 if (current.id == convId) persist()
             }
         }
+    }
+
+    /** Replace a user message with [newText] and re-run the conversation from there. */
+    fun editMessage(id: String, newText: String) {
+        if (streaming) return
+        val msgs = current.messages
+        val idx = msgs.indexOfFirst { it.id == id && it.role == "user" }
+        if (idx < 0) return
+        val original = msgs[idx]
+        current = current.copy(messages = msgs.take(idx))
+        pendingImages = original.images
+        send(newText)
+    }
+
+    /** Per-conversation sampling overrides; null tells the provider to use its own default. */
+    fun setParams(temperature: Float?, maxTokens: Int?) {
+        current = current.copy(temperature = temperature, maxTokens = maxTokens)
+        persist()
     }
 
     fun regenerate() {
@@ -255,11 +359,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         msgs.filter { it.role == "user" || it.text.isNotBlank() }
             .map { m -> Turn(m.role, m.text, m.images.mapNotNull { runCatching { store.imageB64(it) }.getOrNull() }) }
 
-    private fun setLast(text: String, error: String?) {
+    private fun setLast(text: String, error: String?, reasoning: String? = null) {
         val msgs = current.messages
         val last = msgs.lastOrNull() ?: return
         if (last.role != "assistant") return
-        current = current.copy(messages = msgs.dropLast(1) + last.copy(text = text, error = error))
+        current = current.copy(messages = msgs.dropLast(1) + last.copy(
+            text = text,
+            error = error,
+            reasoning = reasoning ?: last.reasoning,
+        ))
     }
 
     private fun persist() {
@@ -308,7 +416,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 try {
                     ApiClient.stream(p, urls[p.id].orEmpty(), keys[p.id].orEmpty(), slot.ref.model, system, turns)
-                        .collect { slot.text += it }
+                        .collect { ev ->
+                            when (ev) {
+                                is StreamEvent.Content -> slot.text += ev.text
+                                is StreamEvent.Reasoning -> slot.reasoning += ev.text
+                            }
+                        }
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {

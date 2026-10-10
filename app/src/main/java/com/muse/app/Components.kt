@@ -29,6 +29,7 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
@@ -197,6 +198,7 @@ fun ModelPickerDialog(
 ) {
     val cs = MaterialTheme.colorScheme
     var q by remember { mutableStateOf("") }
+    val match = { m: String -> q.isBlank() || m.contains(q, ignoreCase = true) }
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = { TextButton(onClick = onDismiss) { Text(if (multi) "Done" else "Close") } },
@@ -219,34 +221,26 @@ fun ModelPickerDialog(
                     )
                 }
                 LazyColumn(Modifier.heightIn(max = 420.dp).padding(top = 8.dp)) {
+                    val favs = vm.favorites.filter { match(it.model) }
+                    if (favs.isNotEmpty()) {
+                        item(key = "h_fav") { PickerHeader("Favorites") }
+                        items(favs, key = { "fv|${it.providerId}|${it.model}" }) { r ->
+                            ModelRow(vm, r, selected, onToggle)
+                        }
+                    }
+                    val recents = vm.recents.filter { it !in vm.favorites && match(it.model) }
+                    if (recents.isNotEmpty()) {
+                        item(key = "h_rec") { PickerHeader("Recent") }
+                        items(recents, key = { "rc|${it.providerId}|${it.model}" }) { r ->
+                            ModelRow(vm, r, selected, onToggle)
+                        }
+                    }
                     providers.forEach { p ->
-                        val models = (vm.modelLists[p.id] ?: emptyList()).filter { q.isBlank() || it.contains(q, ignoreCase = true) }
+                        val models = (vm.modelLists[p.id] ?: emptyList()).filter(match)
                         if (models.isNotEmpty()) {
-                            item(key = "h_${p.id}") {
-                                Text(
-                                    p.name,
-                                    fontSize = 12.sp,
-                                    color = cs.onSurfaceVariant,
-                                    modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
-                                )
-                            }
+                            item(key = "h_${p.id}") { PickerHeader(p.name) }
                             items(models, key = { "${p.id}|$it" }) { m ->
-                                val ref = ModelRef(p.id, m)
-                                val on = ref in selected
-                                Row(
-                                    Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
-                                        .clickable { onToggle(ref) }.padding(vertical = 10.dp, horizontal = 6.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Text(
-                                        m,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        color = if (on) cs.primary else cs.onSurface,
-                                        modifier = Modifier.weight(1f),
-                                    )
-                                    if (on) Icon(Icons.Default.Check, null, tint = cs.primary)
-                                }
+                                ModelRow(vm, ModelRef(p.id, m), selected, onToggle)
                             }
                         }
                     }
@@ -254,4 +248,47 @@ fun ModelPickerDialog(
             }
         },
     )
+}
+
+@Composable
+private fun PickerHeader(text: String) {
+    Text(
+        text,
+        fontSize = 12.sp,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
+    )
+}
+
+@Composable
+private fun ModelRow(
+    vm: AppViewModel,
+    ref: ModelRef,
+    selected: List<ModelRef>,
+    onToggle: (ModelRef) -> Unit,
+) {
+    val cs = MaterialTheme.colorScheme
+    val on = ref in selected
+    val fav = vm.isFavorite(ref)
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { onToggle(ref) },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            ref.model,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            color = if (on) cs.primary else cs.onSurface,
+            modifier = Modifier.weight(1f).padding(start = 6.dp),
+        )
+        if (on) Icon(Icons.Default.Check, null, tint = cs.primary)
+        IconButton(onClick = { vm.toggleFavorite(ref) }, modifier = Modifier.size(40.dp)) {
+            Icon(
+                Icons.Default.Star,
+                contentDescription = if (fav) "Remove favorite" else "Add favorite",
+                tint = if (fav) cs.primary else cs.outline,
+                modifier = Modifier.size(18.dp),
+            )
+        }
+    }
 }

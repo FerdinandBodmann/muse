@@ -28,12 +28,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -132,6 +134,7 @@ fun CompareScreen(vm: AppViewModel, onBack: () -> Unit) {
 @Composable
 private fun SlotCard(slot: CompareSlot) {
     val cs = MaterialTheme.colorScheme
+    var showThinking by rememberSaveable(slot.ref.providerId, slot.ref.model) { mutableStateOf(false) }
     Surface(
         modifier = Modifier.fillMaxSize().padding(vertical = 8.dp),
         shape = RoundedCornerShape(20.dp),
@@ -152,6 +155,21 @@ private fun SlotCard(slot: CompareSlot) {
                 if (slot.running) Text("…", color = cs.onSurfaceVariant)
             }
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(top = 8.dp)) {
+                if (slot.reasoning.isNotBlank()) {
+                    TextButton(
+                        onClick = { showThinking = !showThinking },
+                        contentPadding = PaddingValues(0.dp),
+                    ) {
+                        Text(
+                            if (showThinking) "Hide thinking" else "Show thinking",
+                            fontSize = 12.sp,
+                            color = cs.onSurfaceVariant,
+                        )
+                    }
+                    if (showThinking) {
+                        SelectionContainer { Markdown(slot.reasoning, fontSize = 14.sp) }
+                    }
+                }
                 if (slot.text.isBlank() && slot.error == null) {
                     Text("Thinking…", fontFamily = FontFamily.Serif, fontStyle = FontStyle.Italic, color = cs.onSurfaceVariant)
                 } else if (slot.text.isNotBlank()) {

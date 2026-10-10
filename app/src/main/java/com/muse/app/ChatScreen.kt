@@ -1,5 +1,6 @@
 package com.muse.app
 
+import android.content.Intent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -20,12 +21,14 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DrawerValue
@@ -37,6 +40,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -48,15 +52,18 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -70,6 +77,8 @@ fun ChatScreen(vm: AppViewModel, onSettings: () -> Unit, onCompare: () -> Unit) 
     val scope = rememberCoroutineScope()
     var pickModel by remember { mutableStateOf(false) }
     var pickPersona by remember { mutableStateOf(false) }
+    var showParams by remember { mutableStateOf(false) }
+    var editing by remember { mutableStateOf<ChatMessage?>(null) }
     val msgs = vm.current.messages
 
     ModalNavigationDrawer(
@@ -81,6 +90,7 @@ fun ChatScreen(vm: AppViewModel, onSettings: () -> Unit, onCompare: () -> Unit) 
                     onClose = { scope.launch { drawer.close() } },
                     onSettings = onSettings,
                     onCompare = onCompare,
+                    onParams = { showParams = true },
                 )
             }
         },
@@ -128,7 +138,7 @@ fun ChatScreen(vm: AppViewModel, onSettings: () -> Unit, onCompare: () -> Unit) 
                         verticalArrangement = Arrangement.spacedBy(22.dp),
                     ) {
                         items(msgs.asReversed(), key = { it.id }) { m ->
-                            if (m.role == "user") UserBubble(vm, m)
+                            if (m.role == "user") UserBubble(vm, m) { editing = m }
                             else AssistantBlock(vm, m, isLast = m.id == msgs.last().id)
                         }
                     }
@@ -197,6 +207,81 @@ fun ChatScreen(vm: AppViewModel, onSettings: () -> Unit, onCompare: () -> Unit) 
             },
         )
     }
+    editing?.let { m ->
+        EditMessageDialog(
+            initial = m.text,
+            onSend = { vm.editMessage(m.id, it); editing = null },
+            onDismiss = { editing = null },
+        )
+    }
+    if (showParams) {
+        ParamsDialog(vm, onDismiss = { showParams = false })
+    }
+}
+
+@Composable
+private fun EditMessageDialog(initial: String, onSend: (String) -> Unit, onDismiss: () -> Unit) {
+    var text by remember { mutableStateOf(initial) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit message", fontFamily = FontFamily.Serif) },
+        text = {
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                minLines = 3,
+                maxLines = 10,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = { onSend(text) }, enabled = text.isNotBlank()) { Text("Resend") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+@Composable
+private fun ParamsDialog(vm: AppViewModel, onDismiss: () -> Unit) {
+    val cs = MaterialTheme.colorScheme
+    var temp by remember { mutableStateOf(vm.current.temperature?.toString().orEmpty()) }
+    var maxTok by remember { mutableStateOf(vm.current.maxTokens?.toString().orEmpty()) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Model parameters", fontFamily = FontFamily.Serif) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    "Applies to this chat. Leave blank to use the provider's default.",
+                    fontSize = 12.sp,
+                    color = cs.onSurfaceVariant,
+                )
+                OutlinedTextField(
+                    value = temp,
+                    onValueChange = { s -> temp = s.filter { it.isDigit() || it == '.' } },
+                    label = { Text("Temperature") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = maxTok,
+                    onValueChange = { s -> maxTok = s.filter { it.isDigit() } },
+                    label = { Text("Max output tokens") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                vm.setParams(temp.toFloatOrNull(), maxTok.toIntOrNull())
+                onDismiss()
+            }) { Text("Save") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
 }
 
 @Composable
@@ -216,7 +301,7 @@ private fun EmptyState(vm: AppViewModel, onSettings: () -> Unit, modifier: Modif
 }
 
 @Composable
-private fun UserBubble(vm: AppViewModel, m: ChatMessage) {
+private fun UserBubble(vm: AppViewModel, m: ChatMessage, onEdit: () -> Unit) {
     val cs = MaterialTheme.colorScheme
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         if (m.images.isNotEmpty()) {
@@ -233,6 +318,10 @@ private fun UserBubble(vm: AppViewModel, m: ChatMessage) {
                 }
             }
         }
+        TextButton(
+            onClick = onEdit,
+            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+        ) { Text("Edit", fontSize = 13.sp, color = cs.onSurfaceVariant) }
     }
 }
 
@@ -241,6 +330,8 @@ private fun AssistantBlock(vm: AppViewModel, m: ChatMessage, isLast: Boolean) {
     val cs = MaterialTheme.colorScheme
     val clipboard = LocalClipboardManager.current
     val busy = vm.streaming && isLast
+    var showThinking by rememberSaveable(m.id) { mutableStateOf(false) }
+    val reasoning = m.reasoning
     Column(Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("✦", color = cs.primary, fontSize = 14.sp)
@@ -248,6 +339,20 @@ private fun AssistantBlock(vm: AppViewModel, m: ChatMessage, isLast: Boolean) {
             Text(m.model ?: "", fontSize = 12.sp, color = cs.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Spacer(Modifier.height(6.dp))
+        if (!reasoning.isNullOrBlank() && showThinking) {
+            androidx.compose.material3.Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = cs.surfaceVariant,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Column(Modifier.padding(12.dp)) {
+                    Text("Thinking", fontSize = 11.sp, color = cs.onSurfaceVariant)
+                    Spacer(Modifier.height(4.dp))
+                    SelectionContainer { Markdown(reasoning, fontSize = 14.sp) }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+        }
         if (m.text.isBlank() && m.error == null) {
             Text("Thinking…", fontFamily = FontFamily.Serif, fontStyle = FontStyle.Italic, color = cs.onSurfaceVariant)
         } else if (m.text.isNotBlank()) {
@@ -256,8 +361,14 @@ private fun AssistantBlock(vm: AppViewModel, m: ChatMessage, isLast: Boolean) {
         m.error?.let {
             Text(it, color = cs.error, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
         }
-        if (!busy && (m.text.isNotBlank() || m.error != null)) {
+        if (!busy && (m.text.isNotBlank() || m.error != null || !reasoning.isNullOrBlank())) {
             Row {
+                if (!reasoning.isNullOrBlank()) {
+                    TextButton(
+                        onClick = { showThinking = !showThinking },
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                    ) { Text(if (showThinking) "Hide thinking" else "Show thinking", fontSize = 13.sp, color = cs.onSurfaceVariant) }
+                }
                 if (m.text.isNotBlank()) {
                     TextButton(
                         onClick = { clipboard.setText(AnnotatedString(m.text)) },
@@ -276,8 +387,24 @@ private fun AssistantBlock(vm: AppViewModel, m: ChatMessage, isLast: Boolean) {
 }
 
 @Composable
-private fun DrawerContent(vm: AppViewModel, onClose: () -> Unit, onSettings: () -> Unit, onCompare: () -> Unit) {
+private fun DrawerContent(
+    vm: AppViewModel,
+    onClose: () -> Unit,
+    onSettings: () -> Unit,
+    onCompare: () -> Unit,
+    onParams: () -> Unit,
+) {
     val cs = MaterialTheme.colorScheme
+    val context = LocalContext.current
+    val clipboard = LocalClipboardManager.current
+    var query by remember { mutableStateOf("") }
+    var menuFor by remember { mutableStateOf<Conversation?>(null) }
+    var renameFor by remember { mutableStateOf<Conversation?>(null) }
+    val list = vm.conversations.filter { c ->
+        query.isBlank() || c.title.contains(query, true) ||
+            c.messages.any { it.text.contains(query, true) }
+    }
+
     Column(Modifier.fillMaxHeight().padding(horizontal = 16.dp, vertical = 20.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("✦", color = cs.primary, fontSize = 22.sp)
@@ -288,9 +415,18 @@ private fun DrawerContent(vm: AppViewModel, onClose: () -> Unit, onSettings: () 
         FilledTonalButton(onClick = { vm.newChat(); onClose() }, modifier = Modifier.fillMaxWidth()) {
             Text("New chat")
         }
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(10.dp))
+        OutlinedTextField(
+            value = query,
+            onValueChange = { query = it },
+            placeholder = { Text("Search chats") },
+            singleLine = true,
+            leadingIcon = { Icon(Icons.Default.Search, null, Modifier.size(18.dp), tint = cs.onSurfaceVariant) },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(Modifier.height(10.dp))
         LazyColumn(Modifier.weight(1f)) {
-            items(vm.conversations, key = { it.id }) { c ->
+            items(list, key = { it.id }) { c ->
                 Row(
                     Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
                         .clickable { vm.openConversation(c); onClose() }.padding(start = 12.dp),
@@ -304,16 +440,109 @@ private fun DrawerContent(vm: AppViewModel, onClose: () -> Unit, onSettings: () 
                         color = if (c.id == vm.current.id) cs.primary else cs.onSurface,
                         modifier = Modifier.weight(1f),
                     )
-                    IconButton(onClick = { vm.deleteConversation(c) }, modifier = Modifier.size(40.dp)) {
-                        Icon(Icons.Default.Delete, "Delete chat", Modifier.size(18.dp), tint = cs.onSurfaceVariant)
+                    IconButton(onClick = { menuFor = c }, modifier = Modifier.size(40.dp)) {
+                        Icon(Icons.Default.MoreVert, "Chat actions", Modifier.size(18.dp), tint = cs.onSurfaceVariant)
                     }
+                }
+            }
+            if (list.isEmpty() && query.isNotBlank()) {
+                item {
+                    Text(
+                        "No matches",
+                        fontSize = 13.sp,
+                        color = cs.onSurfaceVariant,
+                        modifier = Modifier.padding(12.dp),
+                    )
                 }
             }
         }
         HorizontalDivider(color = cs.outlineVariant)
+        DrawerRow("Model parameters") { onClose(); onParams() }
         DrawerRow("Compare models") { onClose(); onCompare() }
         DrawerRow("Settings") { onClose(); onSettings() }
     }
+
+    menuFor?.let { c ->
+        ConversationMenuDialog(
+            title = c.title,
+            onRename = { menuFor = null; renameFor = c },
+            onCopy = { clipboard.setText(AnnotatedString(vm.exportMarkdown(c))); menuFor = null },
+            onShare = {
+                val send = Intent(Intent.ACTION_SEND).setType("text/plain")
+                    .putExtra(Intent.EXTRA_TEXT, vm.exportMarkdown(c))
+                    .putExtra(Intent.EXTRA_SUBJECT, c.title)
+                context.startActivity(Intent.createChooser(send, "Share chat"))
+                menuFor = null
+            },
+            onDelete = { vm.deleteConversation(c); menuFor = null },
+            onDismiss = { menuFor = null },
+        )
+    }
+    renameFor?.let { c ->
+        RenameDialog(
+            initial = c.title,
+            onSave = { vm.renameConversation(c, it); renameFor = null },
+            onDismiss = { renameFor = null },
+        )
+    }
+}
+
+@Composable
+private fun ConversationMenuDialog(
+    title: String,
+    onRename: () -> Unit,
+    onCopy: () -> Unit,
+    onShare: () -> Unit,
+    onDelete: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
+        title = {
+            Text(title, fontFamily = FontFamily.Serif, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        },
+        text = {
+            Column {
+                MenuAction("Rename", onRename)
+                MenuAction("Copy as Markdown", onCopy)
+                MenuAction("Share", onShare)
+                MenuAction("Delete", onDelete, danger = true)
+            }
+        },
+    )
+}
+
+@Composable
+private fun MenuAction(label: String, onClick: () -> Unit, danger: Boolean = false) {
+    Text(
+        label,
+        fontSize = 16.sp,
+        color = if (danger) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 14.dp),
+    )
+}
+
+@Composable
+private fun RenameDialog(initial: String, onSave: (String) -> Unit, onDismiss: () -> Unit) {
+    var text by remember { mutableStateOf(initial) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Rename chat", fontFamily = FontFamily.Serif) },
+        text = {
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = { onSave(text) }, enabled = text.isNotBlank()) { Text("Save") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
 }
 
 @Composable

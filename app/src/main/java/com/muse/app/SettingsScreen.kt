@@ -180,6 +180,12 @@ private fun ProviderCard(vm: AppViewModel, p: Provider, open: Boolean, onToggle:
                             onClick = { vm.saveProvider(p, key, url); vm.refreshModels(p) },
                             enabled = (key.isNotBlank() || p.id == "custom") && vm.fetching != p.id,
                         ) { Text(if (vm.fetching == p.id) "Fetching…" else "Fetch models") }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(
+                            onClick = { vm.saveProvider(p, key, url); vm.testProvider(p) },
+                            enabled = (key.isNotBlank() || p.id == "custom") && vm.testing != p.id,
+                        ) { Text(if (vm.testing == p.id) "Testing…" else "Test connection") }
                         if (key.isNotBlank()) {
                             TextButton(onClick = { key = ""; vm.saveProvider(p, "", url) }) { Text("Remove") }
                         }
