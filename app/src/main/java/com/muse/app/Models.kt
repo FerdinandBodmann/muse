@@ -75,6 +75,8 @@ object Providers {
             models = listOf("Meta-Llama-3.3-70B-Instruct")),
         Provider("huggingface", "Hugging Face", "https://router.huggingface.co/v1",
             models = listOf("meta-llama/Llama-3.3-70B-Instruct")),
+        Provider("ollama", "Ollama", "http://localhost:11434/v1"),
+        Provider("lmstudio", "LM Studio", "http://localhost:1234/v1"),
         Provider("moonshot", "Moonshot (Kimi)", "https://api.moonshot.ai/v1"),
         Provider("custom", "Custom (OpenAI-compatible)", ""),
     )

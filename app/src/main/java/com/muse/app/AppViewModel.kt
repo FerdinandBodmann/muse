@@ -76,8 +76,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     // =========================================================== providers
 
+    // Local OpenAI-compatible servers (ollama, lmstudio) need no API key:
+    // they are "configured" as long as a base URL is set.
+    private val keylessIds = setOf("custom", "ollama", "lmstudio")
+
     fun isConfigured(p: Provider): Boolean =
-        if (p.id == "custom") urls[p.id].orEmpty().isNotBlank() else keys[p.id].orEmpty().isNotBlank()
+        if (p.id in keylessIds) urls[p.id].orEmpty().isNotBlank() else keys[p.id].orEmpty().isNotBlank()
 
     val configured: List<Provider>
         get() = Providers.all.filter { isConfigured(it) }
