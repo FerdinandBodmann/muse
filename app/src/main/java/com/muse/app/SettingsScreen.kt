@@ -125,6 +125,7 @@ private fun ProviderCard(vm: AppViewModel, p: Provider, open: Boolean, onToggle:
     var extra by remember { mutableStateOf("") }
     val count = vm.modelLists[p.id]?.size ?: 0
     val ok = vm.isConfigured(p)
+    val offline = p.id in keylessProviders
 
     Surface(
         shape = RoundedCornerShape(20.dp),
@@ -140,9 +141,9 @@ private fun ProviderCard(vm: AppViewModel, p: Provider, open: Boolean, onToggle:
                 Column(Modifier.weight(1f)) {
                     Text(p.name, fontSize = 16.sp)
                     Text(
-                        if (ok) "Connected, $count models" else "Not set up",
+                        if (offline) "Ready, $count models" else if (ok) "Connected, $count models" else "Not set up",
                         fontSize = 12.sp,
-                        color = if (ok) cs.primary else cs.onSurfaceVariant,
+                        color = if (offline || ok) cs.primary else cs.onSurfaceVariant,
                     )
                 }
                 Icon(
@@ -159,7 +160,7 @@ private fun ProviderCard(vm: AppViewModel, p: Provider, open: Boolean, onToggle:
                     OutlinedTextField(
                         value = key,
                         onValueChange = { key = it },
-                        label = { Text(if (p.id == "custom") "API key (optional)" else "API key") },
+                        label = { Text(if (p.id == "custom" || p.id in keylessProviders) "API key (optional)" else "API key") },
                         singleLine = true,
                         visualTransformation = if (show) VisualTransformation.None else PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
@@ -178,13 +179,13 @@ private fun ProviderCard(vm: AppViewModel, p: Provider, open: Boolean, onToggle:
                         Button(onClick = { vm.saveProvider(p, key, url); vm.notice = "${p.name} saved" }) { Text("Save") }
                         OutlinedButton(
                             onClick = { vm.saveProvider(p, key, url); vm.refreshModels(p) },
-                            enabled = (key.isNotBlank() || p.id == "custom") && vm.fetching != p.id,
+                            enabled = (key.isNotBlank() || p.id == "custom" || p.id in keylessProviders) && vm.fetching != p.id,
                         ) { Text(if (vm.fetching == p.id) "Fetching…" else "Fetch models") }
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedButton(
                             onClick = { vm.saveProvider(p, key, url); vm.testProvider(p) },
-                            enabled = (key.isNotBlank() || p.id == "custom") && vm.testing != p.id,
+                            enabled = (key.isNotBlank() || p.id == "custom" || p.id in keylessProviders) && vm.testing != p.id,
                         ) { Text(if (vm.testing == p.id) "Testing…" else "Test connection") }
                         if (key.isNotBlank()) {
                             TextButton(onClick = { key = ""; vm.saveProvider(p, "", url) }) { Text("Remove") }
