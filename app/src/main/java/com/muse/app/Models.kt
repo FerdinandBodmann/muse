@@ -75,13 +75,14 @@ object Providers {
             models = listOf("Meta-Llama-3.3-70B-Instruct")),
         Provider("huggingface", "Hugging Face", "https://router.huggingface.co/v1",
             models = listOf("meta-llama/Llama-3.3-70B-Instruct")),
-        Provider("moonshot", "Moonshot (Kimi)", "https://api.moonshot.ai/v1"),
         Provider("ollama", "Ollama", "http://localhost:11434/v1", ApiType.OPENAI,
             listOf("gpt-oss:20b", "llama3.2:3b", "gemma2:9b", "qwen2.5:7b", "phi3.5:latest")),
+        Provider("lmstudio", "LM Studio", "http://localhost:1234/v1"),
+        Provider("moonshot", "Moonshot (Kimi)", "https://api.moonshot.ai/v1"),
         Provider("custom", "Custom (OpenAI-compatible)", ""),
     )
 
     fun byId(id: String): Provider? = all.firstOrNull { it.id == id }
 }
 
-val keylessProviders = setOf("ollama")
+val keylessProviders = setOf("ollama", "lmstudio")
