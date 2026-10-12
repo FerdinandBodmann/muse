@@ -76,8 +76,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     // =========================================================== providers
 
-    fun isConfigured(p: Provider): Boolean =
-        if (p.id == "custom") urls[p.id].orEmpty().isNotBlank() else keys[p.id].orEmpty().isNotBlank()
+    fun isConfigured(p: Provider): Boolean = when {
+        p.id in keylessProviders -> true
+        p.id == "custom" -> urls[p.id].orEmpty().isNotBlank()
+        else -> keys[p.id].orEmpty().isNotBlank()
+    }
 
     val configured: List<Provider>
         get() = Providers.all.filter { isConfigured(it) }
