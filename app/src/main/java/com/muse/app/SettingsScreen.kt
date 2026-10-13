@@ -122,9 +122,11 @@ private fun ProviderCard(vm: AppViewModel, p: Provider, open: Boolean, onToggle:
     var key by remember(p.id) { mutableStateOf(vm.keys[p.id].orEmpty()) }
     var url by remember(p.id) { mutableStateOf(vm.urls[p.id].orEmpty()) }
     var show by remember { mutableStateOf(false) }
+    var showKeyField by remember { mutableStateOf(vm.keys[p.id].orEmpty().isNotBlank()) }
     var extra by remember { mutableStateOf("") }
     val count = vm.modelLists[p.id]?.size ?: 0
     val ok = vm.isConfigured(p)
+    val isKeyless = p.id in keylessProviders || p.id == "custom"
     val offline = p.id in keylessProviders
 
     Surface(
@@ -157,16 +159,21 @@ private fun ProviderCard(vm: AppViewModel, p: Provider, open: Boolean, onToggle:
                     Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    OutlinedTextField(
-                        value = key,
-                        onValueChange = { key = it },
-                        label = { Text(if (p.id == "custom" || p.id in keylessProviders) "API key (optional)" else "API key") },
-                        singleLine = true,
-                        visualTransformation = if (show) VisualTransformation.None else PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                        trailingIcon = { TextButton(onClick = { show = !show }) { Text(if (show) "Hide" else "Show") } },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
+                    if (!isKeyless || key.isNotBlank() || showKeyField) {
+                        OutlinedTextField(
+                            value = key,
+                            onValueChange = { key = it },
+                            label = { Text(if (isKeyless) "API key (optional)" else "API key") },
+                            singleLine = true,
+                            visualTransformation = if (show) VisualTransformation.None else PasswordVisualTransformation(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                            trailingIcon = { TextButton(onClick = { show = !show }) { Text(if (show) "Hide" else "Show") } },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                    if (isKeyless && key.isBlank() && !showKeyField) {
+                        TextButton(onClick = { showKeyField = true }) { Text("Add API key (optional)") }
+                    }
                     OutlinedTextField(
                         value = url,
                         onValueChange = { url = it },
